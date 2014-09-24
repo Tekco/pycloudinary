@@ -34,7 +34,7 @@ class CloudinaryInput(forms.TextInput):
         attrs["class"] = " ".join(["cloudinary-fileupload", attrs.get("class", "")])
 
         widget = super(CloudinaryInput, self).render("file", None, attrs=attrs)
-        if value: widget += forms.HiddenInput().render(name, value) 
+        if value: widget += forms.HiddenInput().render(name, "v{}/{}.{}".format(value.version, value.public_id, value.format))
         return widget
 
 
@@ -62,7 +62,7 @@ class CloudinaryJsFileField(forms.Field):
             return None;
         m = re.search(r'^([^/]+)/([^/]+)/v(\d+)/([^#]+)#([^/]+)$', value)
         if not m:
-            raise forms.ValidationError("Invalid format")
+            return value
         resource_type = m.group(1)
         if resource_type != 'image':
             raise forms.ValidationError("Only images are supported")
@@ -82,7 +82,7 @@ class CloudinaryJsFileField(forms.Field):
         # Use the parent's handling of required fields, etc.
         super(CloudinaryJsFileField, self).validate(value)
         if not value: return
-        if not value.validate():
+        if isinstance(value, CloudinaryImage) and not value.validate():
             raise forms.ValidationError("Signature mismatch")
 
 class CloudinaryUnsignedJsFileField(CloudinaryJsFileField):
