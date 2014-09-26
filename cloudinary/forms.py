@@ -34,8 +34,13 @@ class CloudinaryInput(forms.TextInput):
         attrs["class"] = " ".join(["cloudinary-fileupload", attrs.get("class", "")])
 
         widget = super(CloudinaryInput, self).render("file", None, attrs=attrs)
-        if value and isinstance(value, CloudinaryImage):
-            widget += forms.HiddenInput().render(name, "v{}/{}.{}".format(value.version, value.public_id, value.format))
+        if value:
+            hidden_value = value
+            if isinstance(value, CloudinaryImage):
+                if value.version: hidden_value = 'v' + str(value.version) + '/'
+                hidden_value += value.public_id
+                if value.format: hidden_value += '.' + value.format
+            widget += forms.HiddenInput().render(name, hidden_value)
         return widget
 
 
@@ -58,36 +63,25 @@ class CloudinaryJsFileField(forms.Field):
         self.widget.attrs["options"]["callback"] = request.build_absolute_uri(staticfiles_storage.url("html/cloudinary_cors.html"))
 
     def to_python(self, value):
-        "Convert to CloudinaryImage"
-        # image/upload/v1411595272/odlmzv4algacmm0okhh5.jpg#2bf62411f656ec67091eddd863240f02e5676d5a
+        """Convert to CloudinaryImage"""
         if not value:
-            return None;
-        m = re.search(r'^([^/]+)/([^/]+)/v(\d+)/([^#]+)#([^/]+)$', value)
-        if not m:
-            if re.search(r'[^a-zA-Z0-9\-_\.\/]', value):
-                return None
-            return value
-        resource_type = m.group(1)
-        if resource_type != 'image':
-            raise forms.ValidationError("Only images are supported")
-        image_type = m.group(2)
-        version = m.group(3)
-        filename = m.group(4)
-        signature = m.group(5)
-        m = re.search(r'(.*)\.(.*)', filename)
-        if not m:
-            raise forms.ValidationError("Invalid file name")
-        public_id = m.group(1)
-        image_format = m.group(2)
-        return CloudinaryImage(public_id, format=image_format, version=version, signature=signature, type=image_type)
+            return None
 
-    def validate(self, value):
-        "Validate the signature"
-        # Use the parent's handling of required fields, etc.
-        super(CloudinaryJsFileField, self).validate(value)
-        if not value: return
-        if isinstance(value, CloudinaryImage) and not value.validate():
-            raise forms.ValidationError("Signature mismatch")
+        m = cloudinary.utils.API_URL_REGEX.search(value)
+        if m:
+            if m.group('resource_type') != 'image':
+                raise forms.ValidationError("Only images are supported")
+            image = CloudinaryImage(m.group('public_id'), format=m.group('image_format'), version=m.group('version'),
+                                    signature=m.group('signature'), type=m.group('image_type'))
+            if not image.validate():
+                raise forms.ValidationError("Signature mistmatch")
+            return image
+
+        m = cloudinary.utils.PUBLIC_ID_REGEX.search(value)
+        if m:
+            return CloudinaryImage(m.group('public_id'), format=m.group('format'), version=m.group('version'))
+
+        raise forms.ValidationError("Invalid format")
 
 class CloudinaryUnsignedJsFileField(CloudinaryJsFileField):
 

@@ -6,6 +6,10 @@ from cloudinary.compat import (PY3, to_bytes, to_bytearray, to_string, unquote, 
 """ @deprecated: use cloudinary.SHARED_CDN """
 SHARED_CDN = cloudinary.SHARED_CDN
 
+PUBLIC_ID_REGEX = re.compile(r'(v(?P<version>\d+)/)?(?P<public_id>[a-zA-Z0-9\-_\/]*?)(\.(?P<format>[^.]+))?$')
+API_URL_REGEX = re.compile(r'^(?P<resource_type>[^/]+)/(?P<image_type>[^/]+)/v(?P<version>\d+)/(?P<public_id>[^.]+)\.(?P<image_format>[^#]+)#(?P<signature>[^/]+)$')
+
+
 def build_array(arg):
     if isinstance(arg, list):
         return arg
