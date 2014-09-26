@@ -20,7 +20,12 @@ def cloudinary_url(context, source, options_dict={}, **options):
     except KeyError:
         pass
     if not isinstance(source, CloudinaryImage):
-        source = CloudinaryImage(source)
+        m = utils.API_URL_REGEX.search(source)
+        if m:
+            source = CloudinaryImage(m.group('public_id'), format=m.group('image_format'), version=m.group('version'),
+                                     signature=m.group('signature'), type=m.group('image_type'))
+        else:
+            source = CloudinaryImage(source)
     return source.build_url(**options)
 
 @register.simple_tag(name='cloudinary', takes_context=True)
@@ -32,7 +37,12 @@ def cloudinary_tag(context, image, options_dict={}, **options):
     except KeyError:
         pass
     if not isinstance(image, CloudinaryImage):
-        image = CloudinaryImage(image)
+        m = utils.API_URL_REGEX.search(image)
+        if m:
+            image = CloudinaryImage(m.group('public_id'), format=m.group('image_format'), version=m.group('version'),
+                                     signature=m.group('signature'), type=m.group('image_type'))
+        else:
+            image = CloudinaryImage(image)
     return image.image(**options)
 
 @register.simple_tag
