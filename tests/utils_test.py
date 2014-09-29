@@ -320,6 +320,13 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(options, {})
         self.assertEqual(result, "http://res.cloudinary.com/test123/image/upload/fl_abc.def/test" )
 
+    def test_dpr(self):
+        """should support dpr (device pixel radio)"""
+        options = {"dpr": "2.0"}
+        result, options = cloudinary.utils.cloudinary_url("test", **options)
+        self.assertEqual(options, {})
+        self.assertEqual(result, "http://res.cloudinary.com/test123/image/upload/dpr_2.0/test" )
+
     def test_folder_version(self):
         """should add version if public_id contains / """
         result, options = cloudinary.utils.cloudinary_url("folder/test")
@@ -376,6 +383,18 @@ class TestUtils(unittest.TestCase):
         for source, target in tests.items():
             result, options = cloudinary.utils.cloudinary_url(source)
             self.assertEquals("http://res.cloudinary.com/test123/image/upload/" + target, result)
+
+    def test_responsive_width(self):
+        """should support responsive width"""
+        options = {"width": 100, "height": 100, "crop": "crop", "responsive_width": True}
+        result, options = cloudinary.utils.cloudinary_url("test", **options)
+        self.assertEqual(options, {"responsive": True})
+        self.assertEqual(result, "http://res.cloudinary.com/test123/image/upload/c_crop,h_100,w_100/c_limit,w_auto/test" )
+        cloudinary.config(responsive_width_transformation={"width": "auto", "crop": "pad"})
+        options = {"width": 100, "height": 100, "crop": "crop", "responsive_width": True}
+        result, options = cloudinary.utils.cloudinary_url("test", **options)
+        self.assertEqual(options, {"responsive": True})
+        self.assertEqual(result, "http://res.cloudinary.com/test123/image/upload/c_crop,h_100,w_100/c_pad,w_auto/test" )
 
 if __name__ == '__main__':
     unittest.main()

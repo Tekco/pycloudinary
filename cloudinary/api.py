@@ -3,6 +3,7 @@ import json
 import base64
 import sys
 import email.utils
+import socket
 import cloudinary
 from cloudinary.compat import urllib2, urlencode, to_string, to_bytes, PY3
 from cloudinary import utils
@@ -70,15 +71,16 @@ def resource(public_id, **options):
     resource_type = options.pop("resource_type", "image")
     type = options.pop("type", "upload")
     uri = ["resources", resource_type, type, public_id]
-    return call_api("get", uri, only(options, "exif", "faces", "colors", "image_metadata", "pages", "phash", "max_results"), **options)
+    return call_api("get", uri, only(options, "exif", "faces", "colors", "image_metadata", "pages", "phash", "coordinates", "max_results"), **options)
 
 def update(public_id, **options):
     resource_type = options.pop("resource_type", "image")
     type = options.pop("type", "upload")
     uri = ["resources", resource_type, type, public_id]
-    upload_options = only(options, "moderation_status", "raw_convert", "ocr", "categorization", "detection", "similarity_search")
+    upload_options = only(options, "moderation_status", "raw_convert", "ocr", "categorization", "detection", "similarity_search", "background_removal")
     if "tags" in options: upload_options["tags"] = ",".join(utils.build_array(options["tags"]))
     if "face_coordinates" in options: upload_options["face_coordinates"] = utils.encode_double_array(options.get("face_coordinates")) 
+    if "custom_coordinates" in options: upload_options["custom_coordinates"] = utils.encode_double_array(options.get("custom_coordinates")) 
     if "context" in options: upload_options["context"] = utils.encode_dict(options.get("context")) 
     if "auto_tagging" in options: upload_options["auto_tagging"] = float(options.get("auto_tagging"))
     return call_api("post", uri, upload_options, **options)
@@ -192,9 +194,15 @@ def call_api(method, uri, params, **options):
     request.add_header("User-Agent", cloudinary.USER_AGENT)
     request.get_method = lambda: method.upper()
 
+    kw = {}
+    if 'timeout' in options:
+        kw['timeout'] = options['timeout']
     try:
-        response = urllib2.urlopen(request)
+        response = urllib2.urlopen(request, **kw)
         body = response.read()
+    except socket.error:
+        e = sys.exc_info()[1]
+        raise GeneralError("Socket Error: %s" % (str(e)))
     except urllib2.HTTPError:
         e = sys.exc_info()[1]
         exception_class = EXCEPTION_CODES.get(e.code)

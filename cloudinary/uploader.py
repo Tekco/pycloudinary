@@ -3,6 +3,7 @@ import json, re, sys
 from os.path import basename
 import urllib
 import cloudinary
+import socket
 from cloudinary import utils
 from cloudinary.api import Error
 from cloudinary.poster.encode import multipart_encode
@@ -20,7 +21,7 @@ def unsigned_upload(file, upload_preset, **options):
 def upload_image(file, **options):
     result = upload(file, **options)
     return cloudinary.CloudinaryImage(result["public_id"], version=str(result["version"]),
-        format=result["format"], metadata=result)
+        format=result.get("format"), metadata=result)
 
 def upload_large(file, **options):
     """ Upload large raw files. Note that public_id should include an extension for best results. """
@@ -82,7 +83,8 @@ def explicit(public_id, **options):
         "headers": utils.build_custom_headers(options.get("headers")),
         "eager": utils.build_eager(options.get("eager")),
         "tags": options.get("tags") and ",".join(utils.build_array(options["tags"])),
-        "face_coordinates": utils.encode_double_array(options.get("face_coordinates"))}
+        "face_coordinates": utils.encode_double_array(options.get("face_coordinates")),
+        "custom_coordinates": utils.encode_double_array(options.get("custom_coordinates"))}
      return call_api("explicit", params, **options)
 
 def generate_sprite(tag, **options):
@@ -170,7 +172,7 @@ def call_api(action, params, **options):
             # Register the streaming http handlers with urllib2
             register_openers()
     
-        datagen = to_bytes("")
+        datagen = []
         headers = {}
         if "file" in options:
             file = options["file"]
@@ -181,12 +183,24 @@ def call_api(action, params, **options):
                 datagen, headers = multipart_encode({'file': file_io})
             else:
                 param_list.append(("file", file))
+
+        if _is_gae():
+            # Might not be needed in the future but for now this is needed in GAE
+            datagen = "".join(datagen)
+
         request = urllib2.Request(api_url + "?" + urlencode(param_list), datagen, headers)
         request.add_header("User-Agent", cloudinary.USER_AGENT)
     
+        kw = {}
+        if 'timeout' in options:
+            kw['timeout'] = options['timeout']
+
         code = 200
         try:
-            response = urllib2.urlopen(request).read()
+            response = urllib2.urlopen(request, **kw).read()
+        except socket.error:
+            e = sys.exc_info()[1]
+            raise Error("Socket error: %s" % str(e))
         except urllib2.HTTPError:
             e = sys.exc_info()[1]
             if not e.code in [200, 400, 500]:
@@ -203,11 +217,14 @@ def call_api(action, params, **options):
     
         if "error" in result:
             if return_error:
-                result["error"]["http_code"] = response.code
+                result["error"]["http_code"] = code
             else:
                 raise Error(result["error"]["message"])
     
         return result
     finally:
         if file_io: file_io.close()    
-    
+
+def _is_gae():
+   import httplib
+   return 'appengine' in str(httplib.HTTP)

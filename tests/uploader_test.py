@@ -127,9 +127,11 @@ class UploaderTest(unittest.TestCase):
         self.assertEqual(coordinates, result["faces"])
 
         different_coordinates = [[122, 32, 111, 152]]
-        uploader.explicit(result["public_id"], face_coordinates = different_coordinates, faces = True, type = "upload")
-        info = api.resource(result["public_id"], faces = True)
+        custom_coordinates = [1,2,3,4]
+        uploader.explicit(result["public_id"], face_coordinates = different_coordinates, custom_coordinates = custom_coordinates, faces = True, type = "upload")
+        info = api.resource(result["public_id"], faces = True, coordinates = True)
         self.assertEqual(different_coordinates, info["faces"])
+        self.assertEqual({"faces": different_coordinates, "custom": [custom_coordinates]}, info["coordinates"])
     
     @unittest.skipUnless(cloudinary.config().api_secret, "requires api_key/api_secret")
     def test_context(self):
@@ -183,6 +185,12 @@ class UploaderTest(unittest.TestCase):
         result = uploader.unsigned_upload("tests/logo.png", preset["name"])
         self.assertRegexpMatches(result["public_id"], '^upload_folder\/[a-z0-9]+$')
         api.delete_upload_preset(preset["name"])
+
+    @unittest.skipUnless(cloudinary.config().api_secret, "requires api_key/api_secret")
+    def test_background_removal(self):
+        """ should support requesting background_removal """
+        with self.assertRaisesRegexp(api.Error, 'illegal is not a valid'): 
+            uploader.upload("tests/logo.png", background_removal="illegal")
 
 if __name__ == '__main__':
     unittest.main()
