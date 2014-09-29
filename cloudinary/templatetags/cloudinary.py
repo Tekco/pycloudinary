@@ -7,6 +7,7 @@ from django.forms import Form
 
 import cloudinary
 from cloudinary import CloudinaryImage, utils, uploader
+from cloudinary.compat import string_types
 from cloudinary.forms import CloudinaryJsFileField, cl_init_js_callbacks
 
 register = template.Library()
@@ -19,13 +20,13 @@ def cloudinary_url(context, source, options_dict={}, **options):
             options['secure'] = True
     except KeyError:
         pass
-    if not isinstance(source, CloudinaryImage):
+    if isinstance(source, string_types):
         m = utils.API_URL_REGEX.search(source)
         if m:
             source = CloudinaryImage(m.group('public_id'), format=m.group('image_format'), version=m.group('version'),
                                      signature=m.group('signature'), type=m.group('image_type'))
-        else:
-            source = CloudinaryImage(source)
+    if not isinstance(source, CloudinaryImage):
+        source = CloudinaryImage(source)
     return source.build_url(**options)
 
 @register.simple_tag(name='cloudinary', takes_context=True)
@@ -36,13 +37,13 @@ def cloudinary_tag(context, image, options_dict={}, **options):
             options['secure'] = True
     except KeyError:
         pass
-    if not isinstance(image, CloudinaryImage):
+    if isinstance(image, string_types):
         m = utils.API_URL_REGEX.search(image)
         if m:
             image = CloudinaryImage(m.group('public_id'), format=m.group('image_format'), version=m.group('version'),
                                      signature=m.group('signature'), type=m.group('image_type'))
-        else:
-            image = CloudinaryImage(image)
+    if not isinstance(image, CloudinaryImage):
+        image = CloudinaryImage(image)
     return image.image(**options)
 
 @register.simple_tag
